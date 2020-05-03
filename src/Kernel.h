@@ -13,6 +13,7 @@
 
 #include <bitset>
 #include <map>
+#include <memory>
 #include <vector>
 
 namespace vc4cl
@@ -26,6 +27,7 @@ namespace vc4cl
     {
     public:
         Kernel(Program* program, const KernelInfo& info);
+        Kernel(const Kernel& other);
         ~Kernel() noexcept override;
 
         CHECK_RETURN cl_int setArg(cl_uint arg_index, size_t arg_size, const void* arg_value);
@@ -56,6 +58,7 @@ namespace vc4cl
         virtual ~KernelArgument() noexcept;
 
         virtual std::string to_string() const = 0;
+        virtual std::unique_ptr<KernelArgument> clone() const = 0;
     };
 
     /**
@@ -83,6 +86,7 @@ namespace vc4cl
         void addScalar(int32_t s);
 
         std::string to_string() const override;
+        std::unique_ptr<KernelArgument> clone() const override;
     };
 
     /**
@@ -120,6 +124,7 @@ namespace vc4cl
         std::vector<uint8_t> data;
 
         std::string to_string() const override;
+        std::unique_ptr<KernelArgument> clone() const override;
     };
 
     /**
@@ -141,6 +146,7 @@ namespace vc4cl
         Buffer* buffer;
 
         std::string to_string() const override;
+        std::unique_ptr<KernelArgument> clone() const override;
     };
 
     struct KernelExecution final : public EventAction

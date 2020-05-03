@@ -40,6 +40,7 @@ target_sources(VC4CL
     TextureFormat.cpp
     TextureFormat.h
     types.h
+    unsupported.cpp
     V3D.cpp
     V3D.h
     vc4cl_config.h
