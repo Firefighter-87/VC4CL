@@ -473,9 +473,11 @@ cl_int Device::getInfo(
     case CL_DEVICE_WORK_GROUP_COLLECTIVE_FUNCTIONS_SUPPORT:
     case CL_DEVICE_GENERIC_ADDRESS_SPACE_SUPPORT:
         // TODO can't we actually support generic address spaces? Assuming we can configure clang to do so?!
-    case CL_DEVICE_DEVICE_ENQUEUE_SUPPORT:
     case CL_DEVICE_PIPE_SUPPORT:
         return returnValue<cl_bool>(CL_FALSE, param_value_size, param_value, param_value_size_ret);
+    case CL_DEVICE_DEVICE_ENQUEUE_CAPABILITIES:
+        // "May return `0`, indicating that device does not support Device-Side Enqueue and On-Device Queues."
+        return returnValue<cl_bitfield>(0, param_value_size, param_value, param_value_size_ret);
     case CL_DEVICE_PREFERRED_WORK_GROUP_SIZE_MULTIPLE:
         //"Returns the preferred multiple of work-group size for the given device. This is a performance hint intended
         // as a guide when specifying the local work size argument to clEnqueueNDRangeKernel."
@@ -489,6 +491,10 @@ cl_int Device::getInfo(
         // "Returns an array of optional OpenCL C features supported by the compiler for the device alongside the OpenCL
         // C version for which they are supported."
         return returnExtensions(device_config::OPENCL_C_FEATURES, param_value_size, param_value, param_value_size_ret);
+    case CL_DEVICE_LATEST_CONFORMANCE_VERSION_PASSED:
+        // "Returns the latest version of the conformance test suite that this device has fully passed in accordance
+        // with the official conformance process."
+        return returnString("", param_value_size, param_value, param_value_size_ret);
 #endif
     default:
         // invalid parameter-name

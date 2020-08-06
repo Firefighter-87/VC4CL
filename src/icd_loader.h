@@ -284,6 +284,8 @@ extern "C"
     cl_mem VC4CL_FUNC(clCreateImageWithProperties)(cl_context context, const cl_mem_properties* properties,
         cl_mem_flags flags, const cl_image_format* image_format, const cl_image_desc* image_desc, void* host_ptr,
         cl_int* errcode_ret);
+    cl_int VC4CL_FUNC(clSetContextDestructorCallback)(
+        cl_context context, void(CL_CALLBACK* pfn_notify)(cl_context context, void* user_data), void* user_data);
 #endif
 
 #ifdef __cplusplus

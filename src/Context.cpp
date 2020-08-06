@@ -10,7 +10,7 @@
 using namespace vc4cl;
 
 Context::Context(const Device* device, const bool userSync, cl_context_properties memoryToZeroOut,
-    const Platform* platform, const ContextProperty explicitProperties, const ContextCallback callback,
+    const Platform* platform, const ContextProperty explicitProperties, const ContextErrorCallback callback,
     void* userData) :
     device(device),
     userSync(userSync), platform(platform), explicitProperties(explicitProperties), memoryToInitialize(memoryToZeroOut),
@@ -18,7 +18,17 @@ Context::Context(const Device* device, const bool userSync, cl_context_propertie
 {
 }
 
-Context::~Context() noexcept = default;
+Context::~Context() noexcept
+{
+    // fire callbacks
+    // "The registered user callback functions are called in the reverse order in which they were registered. The user
+    // callback functions are called after destructors (if any) for program scope global variables (if any) are called
+    // and before the program is released."
+    for(auto it = callbacks.rbegin(); it != callbacks.rend(); ++it)
+    {
+        it->first(this->toBase(), it->second);
+    }
+}
 
 cl_int Context::getInfo(
     cl_context_info param_name, size_t param_value_size, void* param_value, size_t* param_value_size_ret)
@@ -84,6 +94,15 @@ void Context::fireCallback(const std::string& errorInfo, const void* privateInfo
 bool Context::initializeMemoryToZero(cl_context_properties memoryType) const
 {
     return (explicitProperties & ContextProperty::INITIALIZE_MEMORY) && (memoryToInitialize & memoryType) != 0;
+}
+
+cl_int Context::setReleaseCallback(ContextReleaseCallback callback, void* userData)
+{
+    if(callback == nullptr)
+        return returnError(CL_INVALID_VALUE, __FILE__, __LINE__, "Cannot set a NULL callback!");
+
+    callbacks.emplace_back(callback, userData);
+    return CL_SUCCESS;
 }
 
 const Context* HasContext::context() const
@@ -347,3 +366,42 @@ cl_int VC4CL_FUNC(clGetContextInfo)(cl_context context, cl_context_info param_na
     CHECK_CONTEXT(toType<Context>(context))
     return toType<Context>(context)->getInfo(param_name, param_value_size, param_value, param_value_size_ret);
 }
+
+/*!
+ *
+ * \param context specifies the OpenCL context to register the callback to.
+ * \param pfn_notify is the callback function to register. This callback function may be called asynchronously by the
+ * OpenCL implementation. It is the application's responsibility to ensure that the callback function is thread-safe.
+ * The parameters to this callback function are:
+ *  context is the OpenCL context being deleted. When the callback function is called by the implementation, this
+ * context is no longer valid. context is only provided for reference purposes.
+ *  user_data is a pointer to user-supplied data.
+ * \param user_data will be passed as the user_data argument when pfn_notify is called. user_data can be `NULL`.
+ *
+ * Each call to {clSetContextDestructorCallback} registers the specified callback function on a destructor callback
+ * stack associated with context. The registered callback functions are called in the reverse order in which they were
+ * registered. If a context callback function was specified when _context_ was created, it will not be called after any
+ * context destructor callback is called. Therefore, the context destructor callback provides a mechanism for an
+ * application to safely re-use or free any _user_data_ specified for the context callback function when _context_ was
+ * created.
+ *
+ * \return clSetContextDestructorCallback returns CL_SUCCESS if the function is executed successfully. Otherwise, it
+ * returns one of the following errors:
+ * - CL_INVALID_CONTEXT if context is not a valid context.
+ * - CL_INVALID_VALUE if pfn_notify is `NULL`.
+ * - CL_OUT_OF_RESOURCES if there is a failure to allocate resources required by the OpenCL implementation on the
+ * device.
+ * - CL_OUT_OF_HOST_MEMORY if there is a failure to allocate resources required by the OpenCL implementation on the
+ * host.
+ */
+#ifdef CL_VERSION_3_0
+cl_int VC4CL_FUNC(clSetContextDestructorCallback)(
+    cl_context context, void(CL_CALLBACK* pfn_notify)(cl_context context, void* user_data), void* user_data)
+{
+    VC4CL_PRINT_API_CALL("cl_int", clSetContextDestructorCallback, "cl_context", context,
+        "void(CL_CALLBACK*)(cl_context context, void* user_data)", &pfn_notify, "void*", user_data);
+    CHECK_CONTEXT(toType<Context>(context))
+    auto con = toType<Context>(context);
+    return con->setReleaseCallback(pfn_notify, user_data);
+}
+#endif

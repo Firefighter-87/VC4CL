@@ -11,8 +11,9 @@
 
 namespace vc4cl
 {
-    using ContextCallback = void(CL_CALLBACK*)(
+    using ContextErrorCallback = void(CL_CALLBACK*)(
         const char* errinfo, const void* private_info, size_t cb, void* user_data);
+    using ContextReleaseCallback = void(CL_CALLBACK*)(cl_context context, void* user_data);
 
     enum class ContextProperty
     {
@@ -37,13 +38,15 @@ namespace vc4cl
     {
     public:
         Context(const Device* device, bool userSync, cl_context_properties memoryToZeroOut, const Platform* platform,
-            ContextProperty explicitProperties, ContextCallback callback = nullptr, void* userData = nullptr);
+            ContextProperty explicitProperties, ContextErrorCallback callback = nullptr, void* userData = nullptr);
         ~Context() noexcept override;
         CHECK_RETURN cl_int getInfo(
             cl_context_info param_name, size_t param_value_size, void* param_value, size_t* param_value_size_ret);
 
         void fireCallback(const std::string& errorInfo, const void* privateInfo, size_t cb);
         bool initializeMemoryToZero(cl_context_properties memoryType) const __attribute__((pure));
+
+        CHECK_RETURN cl_int setReleaseCallback(ContextReleaseCallback callback, void* userData);
 
         const Device* device;
 
@@ -54,9 +57,10 @@ namespace vc4cl
         const ContextProperty explicitProperties;
         const cl_context_properties memoryToInitialize;
 
-        // callback
-        const ContextCallback callback;
+        // callbacks
+        const ContextErrorCallback callback;
         void* userData;
+        std::vector<std::pair<ContextReleaseCallback, void*>> callbacks;
     };
 
     class HasContext
